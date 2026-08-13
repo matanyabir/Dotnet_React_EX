@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The innermost layer: entities, enums, and domain events.
+    It deliberately has NO project or package references — the dependency rule
+    points inward, so nothing here can depend on ASP.NET, JSON, or persistence.
+  -->
+
+</Project>

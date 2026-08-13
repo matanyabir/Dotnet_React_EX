@@ -1,1 +1,12 @@
-<Solution />
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/MX.Domain/MX.Domain.csproj" />
+    <Project Path="backend/MX.Application/MX.Application.csproj" />
+    <Project Path="backend/MX.Infrastructure/MX.Infrastructure.csproj" />
+    <Project Path="backend/MX.Api/MX.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MX.Application.Tests/MX.Application.Tests.csproj" />
+    <Project Path="tests/MX.Api.Tests/MX.Api.Tests.csproj" />
+  </Folder>
+</Solution>

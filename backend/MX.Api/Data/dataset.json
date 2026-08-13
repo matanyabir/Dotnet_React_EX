@@ -1,0 +1,62 @@
+[
+  {
+    "id": "b2a1f7c0-2a93-4d8f-a23e-9b1a24dcf5a1",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "description": "My laptop overheats and shuts down after 10 minutes of use.",
+    "summary": "Laptop overheating and unexpected shutdown.",
+    "imageUrl": "uploads/laptop_issue.jpg",
+    "status": "New",
+    "resolution": "",
+    "createdAt": "2025-10-27T14:35:00Z",
+    "updatedAt": "2025-10-27T14:35:00Z"
+  },
+  {
+    "id": "9a8b4c9e-7122-4d9f-bfb0-1cf5d14e8f73",
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "description": "The washing machine doesn’t drain water at the end of the cycle.",
+    "summary": "Washing machine drainage issue.",
+    "imageUrl": "uploads/washing_machine.jpg",
+    "status": "In Progress",
+    "resolution": "Technician scheduled for tomorrow.",
+    "createdAt": "2025-10-25T10:20:00Z",
+    "updatedAt": "2025-10-28T09:00:00Z"
+  },
+  {
+    "id": "d41b86b1-c1b9-42ee-9777-7d20cbfb153e",
+    "name": "Emily Johnson",
+    "email": "emily.johnson@example.com",
+    "description": "Air conditioner blows warm air even when set to cooling mode.",
+    "summary": "AC cooling malfunction.",
+    "imageUrl": "uploads/ac_unit.jpg",
+    "status": "Closed",
+    "resolution": "Gas refill completed, tested successfully.",
+    "createdAt": "2025-10-20T08:45:00Z",
+    "updatedAt": "2025-10-23T16:00:00Z"
+  },
+  {
+    "id": "bc5dfd6c-cc7d-4b31-8cf1-4a5139ef97ac",
+    "name": "Daniel Lee",
+    "email": "daniel.lee@example.com",
+    "description": "My smartphone battery drains too fast even after a full charge.",
+    "summary": "Fast battery drain issue on smartphone.",
+    "imageUrl": "uploads/smartphone.jpg",
+    "status": "Resolved",
+    "resolution": "Battery replaced under warranty.",
+    "createdAt": "2025-10-10T09:15:00Z",
+    "updatedAt": "2025-10-18T13:40:00Z"
+  },
+  {
+    "id": "a3c77e09-8e7b-4e61-9a48-8dc53133dbaa",
+    "name": "Olivia Brown",
+    "email": "olivia.brown@example.com",
+    "description": "My internet connection drops every few minutes.",
+    "summary": "Unstable internet connection issue.",
+    "imageUrl": "uploads/router_issue.jpg",
+    "status": "New",
+    "resolution": "",
+    "createdAt": "2025-10-29T11:00:00Z",
+    "updatedAt": "2025-10-29T11:00:00Z"
+  }
+]

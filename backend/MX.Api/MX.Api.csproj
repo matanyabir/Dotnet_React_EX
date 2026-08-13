@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    The composition root: Minimal API endpoints, middleware, and DI wiring.
+    This is the only project allowed to reference MX.Infrastructure, which is
+    what keeps the concrete adapters out of the application layer.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MX.Application\MX.Application.csproj" />
+    <ProjectReference Include="..\MX.Infrastructure\MX.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The ticket store. `Update` rather than `Include`: the Web SDK already globs
+      .json files as Content, so Include would register it twice (NETSDK1022).
+      Copied to output so `dotnet publish` ships a seeded file.
+    -->
+    <Content Update="Data\dataset.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

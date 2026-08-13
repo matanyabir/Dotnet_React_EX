@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Use cases: DTOs, service implementations, and the abstraction "ports"
+    (ITicketRepository, IEmailSender, ISummaryGenerator, IFileStorage) that
+    MX.Infrastructure implements. Depends only on the domain.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MX.Domain\MX.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

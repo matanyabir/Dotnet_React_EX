@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Solution-wide build settings. Applied to every .csproj beneath this file so
+    the quality bar is enforced centrally rather than repeated per project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Nullable reference types on: null-safety is checked by the compiler, not by convention. -->
+    <Nullable>enable</Nullable>
+
+    <!-- Warnings are defects. Failing the build keeps them from accumulating. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>

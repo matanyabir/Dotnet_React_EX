@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Adapters for the ports declared in MX.Application: JSON-file persistence,
+    email senders, AI summary providers, JWT, and local file storage.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\MX.Application\MX.Application.csproj" />
+  </ItemGroup>
+
+</Project>
