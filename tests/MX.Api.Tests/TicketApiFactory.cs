@@ -1,6 +1,9 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using MX.Application.Auth;
 
 namespace MX.Api.Tests;
 
@@ -16,6 +19,21 @@ public sealed class TicketApiFactory : WebApplicationFactory<Program>
 {
     private static readonly string PristineDataset =
         Path.Combine(AppContext.BaseDirectory, "TestData", "dataset.json");
+
+    public const string AdminEmail = "admin@test.local";
+    public const string EditorlessEmail = "viewer@test.local";
+    public const string Password = "test-password";
+
+    /// <summary>
+    /// The same password hashed at 1,000 PBKDF2 iterations instead of the
+    /// production 600,000. Verification reads the cost out of the stored hash, so
+    /// this exercises the real hasher while keeping a login off the critical path
+    /// of every test.
+    /// </summary>
+    private const string TestPasswordHash =
+        "1000.WmUWdy1Xfz5KvZ3X5spcbQ==.8tOLkH5pZvjmva2HSHa1hORkARyAAZ3LSVq0lIES9UE=";
+
+    private const string TestSigningKey = "integration-test-signing-key-0123456789abcdef";
 
     public TicketApiFactory()
     {
@@ -38,6 +56,44 @@ public sealed class TicketApiFactory : WebApplicationFactory<Program>
         // content root differing from the API project's.
         builder.UseSetting("Storage:DataFilePath", DataFilePath);
         builder.UseEnvironment("Testing");
+
+        // The Testing environment loads no appsettings.Development.json, so auth
+        // is configured here in full. That also proves the app takes its accounts
+        // from configuration rather than anything hardcoded.
+        builder.UseSetting("Auth:Jwt:SigningKey", TestSigningKey);
+
+        builder.UseSetting("Auth:Users:0:Email", AdminEmail);
+        builder.UseSetting("Auth:Users:0:PasswordHash", TestPasswordHash);
+        builder.UseSetting("Auth:Users:0:Role", "Admin");
+
+        // A second, non-admin account: the only way to tell "not signed in" (401)
+        // apart from "signed in but not permitted" (403).
+        builder.UseSetting("Auth:Users:1:Email", EditorlessEmail);
+        builder.UseSetting("Auth:Users:1:PasswordHash", TestPasswordHash);
+        builder.UseSetting("Auth:Users:1:Role", "Viewer");
+    }
+
+    /// <summary>Signs in and returns the access token.</summary>
+    public async Task<string> LoginAsync(string email, string password = Password)
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, password));
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadFromJsonAsync<LoginResponse>(Json);
+        return body!.AccessToken;
+    }
+
+    /// <summary>A client whose requests carry a bearer token for the given account.</summary>
+    public async Task<HttpClient> CreateAuthenticatedClientAsync(string email)
+    {
+        var token = await LoginAsync(email);
+
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return client;
     }
 
     protected override void Dispose(bool disposing)

@@ -7,6 +7,7 @@ using MX.Infrastructure.Ai;
 using MX.Infrastructure.Configuration;
 using MX.Infrastructure.Events;
 using MX.Infrastructure.Persistence;
+using MX.Infrastructure.Security;
 
 namespace MX.Infrastructure;
 
@@ -35,7 +36,29 @@ public static class DependencyInjection
         services.AddSingleton<ISummaryGenerator, NullSummaryGenerator>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
+        services.AddAuthenticationServices(configuration);
+
         return services;
+    }
+
+    /// <summary>
+    /// Password hashing, token issuing, and the account store.
+    /// </summary>
+    private static void AddAuthenticationServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        // ValidateOnStart turns a missing or too-short signing key into a startup
+        // failure with a clear message, rather than a confusing 500 on the first
+        // login attempt hours later.
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
+
+        services.AddSingleton<IPasswordHasher>(_ => new Pbkdf2PasswordHasher());
+        services.AddSingleton<IUserStore, ConfiguredUserStore>();
+        services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
     }
 
     /// <summary>

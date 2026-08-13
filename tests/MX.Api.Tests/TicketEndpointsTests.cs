@@ -14,14 +14,20 @@ public sealed class TicketEndpointsTests : IDisposable
 {
     private readonly TicketApiFactory _factory = new();
     private readonly HttpClient _client;
+    private HttpClient? _adminClient;
 
     public TicketEndpointsTests() => _client = _factory.CreateClient();
 
     public void Dispose()
     {
         _client.Dispose();
+        _adminClient?.Dispose();
         _factory.Dispose();
     }
+
+    /// <summary>A signed-in admin client. Editing is admin-only from Stage 5 on.</summary>
+    private async Task<HttpClient> AdminAsync() =>
+        _adminClient ??= await _factory.CreateAuthenticatedClientAsync(TicketApiFactory.AdminEmail);
 
     private static CreateTicketRequest AnyNewTicket(
         string name = "Ada Lovelace",
@@ -196,7 +202,7 @@ public sealed class TicketEndpointsTests : IDisposable
     {
         var created = await CreateAsync(AnyNewTicket());
 
-        var response = await _client.PutAsJsonAsync(
+        var response = await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Status: "In Progress"));
 
         response.EnsureSuccessStatusCode();
@@ -211,7 +217,7 @@ public sealed class TicketEndpointsTests : IDisposable
     {
         var created = await CreateAsync(AnyNewTicket());
 
-        var response = await _client.PutAsJsonAsync(
+        var response = await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Resolution: "Extinguished the printer."));
 
         var updated = await response.Content.ReadFromJsonAsync<TicketDto>(TicketApiFactory.Json);
@@ -223,10 +229,10 @@ public sealed class TicketEndpointsTests : IDisposable
     public async Task Put_leaves_the_field_it_was_not_given_alone()
     {
         var created = await CreateAsync(AnyNewTicket());
-        await _client.PutAsJsonAsync(
+        await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Resolution: "Parts ordered."));
 
-        var response = await _client.PutAsJsonAsync(
+        var response = await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Status: "Closed"));
 
         var updated = await response.Content.ReadFromJsonAsync<TicketDto>(TicketApiFactory.Json);
@@ -239,7 +245,7 @@ public sealed class TicketEndpointsTests : IDisposable
     public async Task Put_changes_survive_a_reread_from_disk()
     {
         var created = await CreateAsync(AnyNewTicket());
-        await _client.PutAsJsonAsync(
+        await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Status: "Resolved", Resolution: "Done."));
 
         var onDisk = await File.ReadAllTextAsync(_factory.DataFilePath);
@@ -251,7 +257,7 @@ public sealed class TicketEndpointsTests : IDisposable
     [Fact]
     public async Task Put_to_an_unknown_id_returns_404()
     {
-        var response = await _client.PutAsJsonAsync(
+        var response = await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{Guid.NewGuid()}", new UpdateTicketRequest(Status: "Closed"));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -262,7 +268,7 @@ public sealed class TicketEndpointsTests : IDisposable
     {
         var created = await CreateAsync(AnyNewTicket());
 
-        var response = await _client.PutAsJsonAsync(
+        var response = await (await AdminAsync()).PutAsJsonAsync(
             $"/api/tickets/{created.Id}", new UpdateTicketRequest(Status: "Pending"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

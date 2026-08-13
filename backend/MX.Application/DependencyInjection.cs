@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using MX.Application.Auth;
 using MX.Application.Tickets;
 
 namespace MX.Application;
@@ -12,6 +13,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<ITicketService, TicketService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         // Injected rather than called statically, so tests can freeze time.
         services.TryAddSingletonTimeProvider();

@@ -24,6 +24,14 @@
       invalidate them.
     -->
     <Content Include="..\..\dataset.json" Link="TestData\dataset.json" CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      The committed development settings. The documented sign-in credential is
+      part of what we ship, so it is asserted rather than assumed to still work.
+    -->
+    <Content Include="..\..\backend\MX.Api\appsettings.Development.json"
+             Link="TestData\appsettings.Development.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

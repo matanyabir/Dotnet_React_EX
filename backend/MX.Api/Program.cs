@@ -1,3 +1,4 @@
+using MX.Api.Authentication;
 using MX.Api.Endpoints;
 using MX.Application;
 using MX.Infrastructure;
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // the API knows about Application and Infrastructure, and neither knows about it.
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 // Turns unhandled exceptions into RFC 9457 ProblemDetails instead of an HTML
 // error page, so every failure the client sees has the same shape.
@@ -44,11 +46,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(FrontendCorsPolicy);
 
+// Order matters: authentication establishes *who* the caller is, authorization
+// then decides what they may do. Swapped, every protected endpoint would see an
+// anonymous user and reject everyone.
+app.UseAuthentication();
+app.UseAuthorization();
+
 // ------------------------------------------------------------------ endpoints
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithTags("Diagnostics")
     .WithSummary("Liveness probe.");
 
+app.MapAuthEndpoints();
 app.MapTicketEndpoints();
 
 app.Run();

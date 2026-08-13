@@ -32,6 +32,13 @@ internal static class ResultExtensions
                 errors: new Dictionary<string, string[]> { ["request"] = [.. result.Errors] },
                 title: "The request could not be accepted"),
 
+            // 401 rather than 400: the credentials were well-formed, they just
+            // did not identify anyone.
+            ResultErrorType.Unauthorized => Results.Problem(
+                title: "Not authenticated",
+                detail: result.Errors.FirstOrDefault(),
+                statusCode: StatusCodes.Status401Unauthorized),
+
             // No other failure kind exists; reaching here means one was added to
             // the enum without deciding what it means over HTTP.
             _ => Results.Problem(

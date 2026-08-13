@@ -13,7 +13,10 @@ public enum ResultErrorType
     NotFound,
 
     /// <summary>The caller sent something the domain will not accept.</summary>
-    Validation
+    Validation,
+
+    /// <summary>The caller could not be identified — bad credentials.</summary>
+    Unauthorized
 }
 
 /// <summary>
@@ -64,4 +67,7 @@ public sealed class Result<TValue>
 
     public static Result<TValue> Invalid(IReadOnlyList<string> errors) =>
         new(ResultErrorType.Validation, errors);
+
+    public static Result<TValue> Unauthorized(string message) =>
+        new(ResultErrorType.Unauthorized, [message]);
 }

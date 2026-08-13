@@ -1,3 +1,4 @@
+using MX.Api.Authentication;
 using MX.Application.Tickets;
 using MX.Application.Tickets.Dtos;
 using MX.Domain.Tickets;
@@ -39,9 +40,12 @@ internal static class TicketEndpoints
             .WithName("CreateTicket")
             .WithSummary("Files a new ticket. Open to anonymous customers.");
 
+        // The README's rule, expressed in one line: anyone may file a ticket,
+        // only a signed-in admin may edit one.
         group.MapPut("/{id:guid}", UpdateTicketAsync)
             .WithName("UpdateTicket")
-            .WithSummary("Updates status and/or resolution text.");
+            .WithSummary("Updates status and/or resolution text. Admins only.")
+            .RequireAuthorization(AuthenticationSetup.AdminPolicy);
 
         return group;
     }
