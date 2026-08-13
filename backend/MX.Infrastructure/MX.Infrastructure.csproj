@@ -8,6 +8,7 @@
     <ProjectReference Include="..\MX.Application\MX.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.40.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.19" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.19" />

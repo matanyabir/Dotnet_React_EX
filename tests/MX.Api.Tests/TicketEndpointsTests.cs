@@ -172,6 +172,27 @@ public sealed class TicketEndpointsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_created_ticket_carries_an_AI_summary()
+    {
+        // The default provider summarises locally, so this passes with no API key
+        // and proves the generator is actually wired into the create path.
+        var created = await CreateAsync(AnyNewTicket(
+            description: "The dishwasher floods the kitchen. It has done it three times this week."));
+
+        Assert.Equal("The dishwasher floods the kitchen.", created.Summary);
+    }
+
+    [Fact]
+    public async Task The_summary_is_persisted_alongside_the_ticket()
+    {
+        await CreateAsync(AnyNewTicket(description: "The kettle will not boil. It only clicks."));
+
+        var onDisk = await File.ReadAllTextAsync(_factory.DataFilePath);
+
+        Assert.Contains("The kettle will not boil.", onDisk, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Post_rejects_invalid_input_with_a_validation_problem()
     {
         var response = await _client.PostAsJsonAsync(

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MX.Application.Abstractions;
 using MX.Application.Notifications;
@@ -36,13 +37,54 @@ public static class DependencyInjection
             return new JsonTicketRepository(Resolve(options.DataFilePath, contentRootPath));
         });
 
-        services.AddSingleton<ISummaryGenerator, NullSummaryGenerator>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
+        services.AddSummaryGeneration(configuration);
         services.AddAuthenticationServices(configuration);
         services.AddEmailNotifications(configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// The configured summary provider, wrapped in the resilience decorator.
+    /// </summary>
+    private static void AddSummaryGeneration(this IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(AiOptions.SectionName);
+        services.Configure<AiOptions>(section);
+
+        var options = section.Get<AiOptions>() ?? new AiOptions();
+
+        // Registered by concrete type; only the decorator is exposed as the port,
+        // so nothing can accidentally resolve an unprotected generator.
+        switch (options.Provider)
+        {
+            case AiProvider.Claude:
+                services.AddSingleton<ClaudeSummaryGenerator>();
+                break;
+            case AiProvider.None:
+                services.AddSingleton<NullSummaryGenerator>();
+                break;
+            default:
+                services.AddSingleton<StubSummaryGenerator>();
+                break;
+        }
+
+        services.AddSingleton<ISummaryGenerator>(provider =>
+        {
+            ISummaryGenerator inner = options.Provider switch
+            {
+                AiProvider.Claude => provider.GetRequiredService<ClaudeSummaryGenerator>(),
+                AiProvider.None => provider.GetRequiredService<NullSummaryGenerator>(),
+                _ => provider.GetRequiredService<StubSummaryGenerator>()
+            };
+
+            return new ResilientSummaryGenerator(
+                inner,
+                TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds)),
+                provider.GetRequiredService<ILogger<ResilientSummaryGenerator>>());
+        });
     }
 
     /// <summary>
