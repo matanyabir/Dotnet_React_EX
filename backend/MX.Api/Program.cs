@@ -1,9 +1,55 @@
+using MX.Api.Endpoints;
+using MX.Application;
+using MX.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// ---------------------------------------------------------------- composition
+// Each layer registers itself. Read top-down, this is the whole dependency graph:
+// the API knows about Application and Infrastructure, and neither knows about it.
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
+
+// Turns unhandled exceptions into RFC 9457 ProblemDetails instead of an HTML
+// error page, so every failure the client sees has the same shape.
+builder.Services.AddProblemDetails();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+const string FrontendCorsPolicy = "frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                     ?? ["http://localhost:5173"];
+
+builder.Services.AddCors(options =>
+    options.AddPolicy(FrontendCorsPolicy, policy => policy
+        .WithOrigins(allowedOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
 
 var app = builder.Build();
 
-// Liveness probe. Real endpoints are mapped in Stage 4.
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// ----------------------------------------------------------------- middleware
+app.UseExceptionHandler();
+
+// Gives bodyless failures (a 404 from an unmatched route, say) a ProblemDetails
+// body too, so the client never has to special-case an empty response.
+app.UseStatusCodePages();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors(FrontendCorsPolicy);
+
+// ------------------------------------------------------------------ endpoints
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+    .WithTags("Diagnostics")
+    .WithSummary("Liveness probe.");
+
+app.MapTicketEndpoints();
 
 app.Run();
 

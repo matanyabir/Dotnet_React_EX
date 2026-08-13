@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The pristine dataset, copied per test into a temp file the API writes to. -->
+    <Content Include="..\..\dataset.json" Link="TestData\dataset.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
