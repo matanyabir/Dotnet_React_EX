@@ -7,6 +7,16 @@
   <ItemGroup>
     <ProjectReference Include="..\MX.Application\MX.Application.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Image-format detection is an implementation detail, not public API, but it
+      is security-relevant enough to deserve tests of its own. Granting the test
+      project access keeps it internal rather than widening the surface to suit
+      the tests.
+    -->
+    <InternalsVisibleTo Include="MX.Infrastructure.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Anthropic" Version="12.40.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />

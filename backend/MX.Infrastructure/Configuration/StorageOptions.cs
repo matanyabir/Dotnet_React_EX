@@ -15,8 +15,14 @@ public sealed class StorageOptions
     public string DataFilePath { get; set; } = Path.Combine("Data", "dataset.json");
 
     /// <summary>
-    /// Where uploaded images are written (Stage 8). Under wwwroot so the static
-    /// file middleware can serve them back.
+    /// Where uploaded images are written. Under wwwroot so the static file
+    /// middleware serves them back at <c>/uploads/{file}</c>.
     /// </summary>
     public string UploadsDirectory { get; set; } = Path.Combine("wwwroot", "uploads");
+
+    /// <summary>
+    /// Largest image accepted. Generous for a phone photo, small enough that a
+    /// single upload cannot fill the disk or stall the request pipeline.
+    /// </summary>
+    public long MaxImageSizeBytes { get; set; } = 5 * 1024 * 1024;
 }

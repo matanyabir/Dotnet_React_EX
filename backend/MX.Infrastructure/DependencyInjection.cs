@@ -12,6 +12,7 @@ using MX.Infrastructure.Email;
 using MX.Infrastructure.Events;
 using MX.Infrastructure.Persistence;
 using MX.Infrastructure.Security;
+using MX.Infrastructure.Storage;
 
 namespace MX.Infrastructure;
 
@@ -35,6 +36,16 @@ public static class DependencyInjection
         {
             var options = provider.GetRequiredService<IOptions<StorageOptions>>().Value;
             return new JsonTicketRepository(Resolve(options.DataFilePath, contentRootPath));
+        });
+
+        services.AddSingleton<IFileStorage>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<StorageOptions>>().Value;
+
+            return new LocalFileStorage(
+                Resolve(options.UploadsDirectory, contentRootPath),
+                options.MaxImageSizeBytes,
+                provider.GetRequiredService<ILogger<LocalFileStorage>>());
         });
 
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();

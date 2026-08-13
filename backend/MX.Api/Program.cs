@@ -31,6 +31,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Uploaded images live under wwwroot and are served straight from disk. Created
+// eagerly because the static file middleware needs the web root to exist, and a
+// fresh clone has never received an upload.
+Directory.CreateDirectory(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "uploads"));
+
 // ----------------------------------------------------------------- middleware
 app.UseExceptionHandler();
 
@@ -43,6 +48,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Serves uploaded ticket images from wwwroot at /uploads/{file}. Static files
+// come before auth on purpose: a customer viewing their own ticket's photo is
+// not signed in, and the filenames are unguessable GUIDs.
+app.UseStaticFiles();
 
 app.UseCors(FrontendCorsPolicy);
 

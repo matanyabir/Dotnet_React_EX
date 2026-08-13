@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Uploaded ticket images. The directory is tracked so the app has somewhere to
+# write on a fresh clone; the uploads themselves are runtime data, not source.
+backend/MX.Api/wwwroot/uploads/*
+!backend/MX.Api/wwwroot/uploads/.gitkeep
