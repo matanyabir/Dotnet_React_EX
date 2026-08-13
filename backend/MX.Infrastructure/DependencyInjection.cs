@@ -2,9 +2,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using MX.Application.Abstractions;
+using MX.Application.Notifications;
 using MX.Domain.Common;
+using MX.Domain.Tickets.Events;
 using MX.Infrastructure.Ai;
 using MX.Infrastructure.Configuration;
+using MX.Infrastructure.Email;
 using MX.Infrastructure.Events;
 using MX.Infrastructure.Persistence;
 using MX.Infrastructure.Security;
@@ -37,8 +40,41 @@ public static class DependencyInjection
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
         services.AddAuthenticationServices(configuration);
+        services.AddEmailNotifications(configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// The email sender and the three handlers that use it.
+    /// </summary>
+    private static void AddEmailNotifications(this IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(EmailOptions.SectionName);
+        services.Configure<EmailOptions>(section);
+
+        var options = section.Get<EmailOptions>() ?? new EmailOptions();
+
+        services.AddSingleton(new NotificationSettings(options.FrontendBaseUrl));
+        services.AddSingleton<TicketEmailComposer>();
+
+        if (options.Provider is EmailProvider.Smtp)
+        {
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        }
+        else
+        {
+            // Registered twice on purpose: once as the port everything consumes,
+            // once as itself so tests can read back what was "sent". Resolving the
+            // concrete type through the interface registration keeps it one object.
+            services.AddSingleton<MockEmailSender>();
+            services.AddSingleton<IEmailSender>(provider => provider.GetRequiredService<MockEmailSender>());
+        }
+
+        // The README's three cases, one handler each.
+        services.AddDomainEventHandler<TicketCreated, SendConfirmationOnTicketCreated>();
+        services.AddDomainEventHandler<TicketStatusChanged, SendNoticeOnStatusChanged>();
+        services.AddDomainEventHandler<TicketResolutionChanged, SendNoticeOnResolutionChanged>();
     }
 
     /// <summary>
