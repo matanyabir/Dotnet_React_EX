@@ -1,0 +1,31 @@
+.link {
+  display: inline-block;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  max-width: 340px;
+}
+
+.image {
+  width: 100%;
+  height: auto;
+}
+
+.missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 340px;
+}
+
+.missingPath {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,56 @@
+/* A standalone centred card — this screen has no app chrome, matching login.png. */
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-6);
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+.footer {
+  margin-top: var(--space-4);
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.back {
+  display: block;
+  margin-top: var(--space-3);
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--text);
+}
+
+/* Development-only credential hint, so the exercise can be tried immediately. */
+.devHint {
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.devHint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}

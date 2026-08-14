@@ -1,0 +1,153 @@
+.toolbar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-3);
+  flex: 1 1 320px;
+}
+
+.statusFilter {
+  flex: 0 0 170px;
+}
+
+.search {
+  flex: 1 1 200px;
+}
+
+.count {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: var(--space-3);
+}
+
+/* The table can outgrow a narrow window; scrolling it inside its own box keeps
+   the page itself from scrolling sideways. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.table th {
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.row {
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.row:hover {
+  background: var(--surface-sunken);
+}
+
+.customer {
+  font-weight: 600;
+}
+
+.email {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Two lines of summary, then ellipsis — the full text lives on the detail page. */
+.summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 42ch;
+}
+
+.noSummary {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.resolution {
+  max-width: 34ch;
+  color: var(--text-muted);
+}
+
+.date {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/*
+ * Below 760px the table becomes a stack of cards: each row a card, each cell
+ * labelled by its column header. A table that only scrolls sideways on a phone
+ * is technically readable and practically unusable.
+ */
+@media (width <= 760px) {
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-3);
+    padding: var(--space-2);
+  }
+
+  .table td {
+    border: none;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    gap: var(--space-3);
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    flex: 0 0 auto;
+  }
+
+  .summary,
+  .resolution {
+    max-width: none;
+    text-align: right;
+  }
+}

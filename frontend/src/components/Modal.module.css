@@ -1,0 +1,71 @@
+.dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: min(520px, calc(100vw - 32px));
+  width: 100%;
+  /* The native dialog centres itself; margin:auto keeps that on older engines. */
+  margin: auto;
+}
+
+.dialog::backdrop {
+  background: rgb(16 24 40 / 45%);
+  backdrop-filter: blur(2px);
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  /* Long forms scroll inside the panel rather than pushing it off-screen. */
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+
+.title {
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.close {
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.close:hover {
+  color: var(--text);
+}
+
+.body {
+  padding: 0 var(--space-5) var(--space-5);
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] .panel {
+    animation: rise 160ms ease-out;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

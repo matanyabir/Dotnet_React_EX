@@ -1,0 +1,241 @@
+/*
+ * Shared primitives: buttons, form fields, cards, and the small feedback
+ * states. Kept in one module because they are the vocabulary every screen
+ * draws from — splitting them per component would scatter the design decisions
+ * that need to stay consistent.
+ */
+
+/* ---------------------------------------------------------------- buttons */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--brand);
+  color: var(--text-inverse);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--brand-strong);
+}
+
+/* The customer's one action — coral, per the New Ticket and Login mockups. */
+.accent {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.accent:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.secondary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 10px;
+}
+
+.ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-sunken);
+}
+
+.block {
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------ forms */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color 120ms ease;
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover {
+  border-color: var(--text-muted);
+}
+
+.textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.select {
+  cursor: pointer;
+}
+
+.input:disabled,
+.textarea:disabled,
+.select:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* Signals the invalid field itself, not just the message at the bottom. */
+.invalid {
+  border-color: var(--danger);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fieldError {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+/* File inputs style poorly; a labelled button that proxies to a hidden input
+   gives the "Choose File" affordance from the mockup with consistent styling. */
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.fileName {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+/* --------------------------------------------------------------- surfaces */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* --------------------------------------------------------------- feedback */
+
+.banner {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  margin-bottom: var(--space-4);
+}
+
+.bannerError {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.bannerSuccess {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.bannerInfo {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.empty {
+  padding: var(--space-7) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.emptyTitle {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-1);
+}
+
+/* A skeleton rather than a spinner: it reserves the space the content will
+   occupy, so the layout does not jump when the rows arrive. */
+.skeletonRow {
+  height: 52px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, #eef1f5 37%, var(--surface-sunken) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,0 +1,39 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* A coloured dot as well as the tint, so status is not conveyed by colour alone. */
+.pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.new {
+  color: var(--status-new-fg);
+  background: var(--status-new-bg);
+}
+
+.inProgress {
+  color: var(--status-progress-fg);
+  background: var(--status-progress-bg);
+}
+
+.resolved {
+  color: var(--status-resolved-fg);
+  background: var(--status-resolved-bg);
+}
+
+.closed {
+  color: var(--status-closed-fg);
+  background: var(--status-closed-bg);
+}
