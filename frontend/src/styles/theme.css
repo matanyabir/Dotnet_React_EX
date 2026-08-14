@@ -1,0 +1,132 @@
+/*
+ * Design tokens.
+ *
+ * The mockups use two different palettes — a blue admin screen and a coral
+ * customer-facing form. Rather than pick one, both are kept and given jobs:
+ * blue is the product/brand colour and drives admin actions, coral marks the
+ * one action a customer takes. Everything else is shared, so the two screens
+ * read as one system.
+ */
+:root {
+  /* Brand */
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  --brand-soft: #eef4ff;
+
+  /* The customer's primary action */
+  --accent: #e2694a;
+  --accent-strong: #c9552f;
+  --accent-soft: #fdf1ec;
+
+  /* Surfaces */
+  --page: #f4f6f9;
+  --surface: #ffffff;
+  --surface-sunken: #f8fafc;
+  --border: #e2e7ee;
+  --border-strong: #cbd4e1;
+
+  /* Text */
+  --text: #1b2430;
+  --text-muted: #64707f;
+  --text-inverse: #ffffff;
+
+  /* Feedback */
+  --danger: #c0392b;
+  --danger-soft: #fdecea;
+  --success: #1f7a4d;
+  --success-soft: #e8f6ee;
+
+  /* Status pills, one per value in the domain's vocabulary */
+  --status-new-fg: #1d4ed8;
+  --status-new-bg: #e6edff;
+  --status-progress-fg: #9a5b00;
+  --status-progress-bg: #fff2d9;
+  --status-resolved-fg: #1f7a4d;
+  --status-resolved-bg: #e4f5ec;
+  --status-closed-fg: #55606e;
+  --status-closed-bg: #eceff3;
+
+  /* Scale */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 4px 16px rgb(16 24 40 / 8%);
+  --shadow-lg: 0 18px 48px rgb(16 24 40 / 18%);
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ------------------------------------------------------------------ reset */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+html {
+  /* Anchors and the detail route land below the sticky header rather than under it. */
+  scroll-padding-top: var(--space-6);
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * A visible focus ring on every interactive element. The browser default is
+ * removed by so many resets that restoring it explicitly is worth the line —
+ * without it the app is unusable by keyboard.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Respect users who have asked their system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

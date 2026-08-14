@@ -24,10 +24,29 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
                      ?? ["http://localhost:5173"];
 
 builder.Services.AddCors(options =>
-    options.AddPolicy(FrontendCorsPolicy, policy => policy
-        .WithOrigins(allowedOrigins)
-        .AllowAnyHeader()
-        .AllowAnyMethod()));
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        policy.AllowAnyHeader().AllowAnyMethod();
+
+        if (builder.Environment.IsDevelopment())
+        {
+            // Dev servers take whatever port is free — Vite moves to 5174 when
+            // something else already holds 5173 — so in development the check is
+            // "is this the local machine", not "is this one exact port". Without
+            // this, a developer whose 5173 is occupied gets a frontend that
+            // renders but silently fails every request.
+            //
+            // Development only: outside it, the configured allowlist applies
+            // strictly, because "any loopback origin" is not a boundary worth
+            // anything on a real host.
+            policy.SetIsOriginAllowed(origin =>
+                Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins);
+        }
+    }));
 
 var app = builder.Build();
 
