@@ -41,6 +41,27 @@ internal static class AuthenticationSetup
                     // tokens working well past their stated expiry.
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    // Browsers send the session as an HttpOnly cookie, which the
+                    // bearer handler does not look at on its own. Everything after
+                    // this point — signature, issuer, audience, lifetime — is the
+                    // same validation either way; only the place the token was
+                    // read from differs.
+                    //
+                    // The Authorization header still wins when present, so
+                    // non-browser callers (curl, the tests) are unaffected.
+                    OnMessageReceived = context =>
+                    {
+                        if (string.IsNullOrEmpty(context.Token))
+                        {
+                            context.Token = SessionCookie.Read(context.Request);
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
         services.AddAuthorizationBuilder()

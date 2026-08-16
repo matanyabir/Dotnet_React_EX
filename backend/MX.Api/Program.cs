@@ -26,7 +26,12 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(options =>
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        policy.AllowAnyHeader().AllowAnyMethod();
+        // The session travels as a cookie, and a browser will not attach one to a
+        // cross-origin request — nor let the page read the response — unless the
+        // server says credentials are allowed. Note that this is incompatible
+        // with a wildcard origin by specification, which is why both branches
+        // below name the origins they trust.
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
 
         if (builder.Environment.IsDevelopment())
         {

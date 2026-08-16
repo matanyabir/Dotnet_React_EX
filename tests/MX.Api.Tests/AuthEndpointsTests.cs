@@ -41,7 +41,7 @@ public sealed class AuthEndpointsTests : IDisposable
     // ------------------------------------------------------------------ login
 
     [Fact]
-    public async Task Login_with_correct_credentials_returns_a_token()
+    public async Task Login_with_correct_credentials_describes_the_session()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/login",
             new LoginRequest(TicketApiFactory.AdminEmail, TicketApiFactory.Password));
@@ -49,18 +49,122 @@ public sealed class AuthEndpointsTests : IDisposable
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<LoginResponse>(TicketApiFactory.Json);
 
-        Assert.False(string.IsNullOrWhiteSpace(body!.AccessToken));
-        Assert.Equal("Admin", body.Role);
+        Assert.Equal("Admin", body!.Role);
         Assert.Equal(TicketApiFactory.AdminEmail, body.Email);
         Assert.True(body.ExpiresAt > DateTimeOffset.UtcNow);
     }
 
     [Fact]
-    public async Task Login_returns_a_three_part_jwt()
+    public async Task Login_issues_a_three_part_jwt()
     {
         var token = await _factory.LoginAsync(TicketApiFactory.AdminEmail);
 
         Assert.Equal(3, token.Split('.').Length);
+    }
+
+    // ------------------------------------------- keeping the token out of script
+
+    [Fact]
+    public async Task Login_puts_the_token_in_an_HttpOnly_cookie()
+    {
+        // The reason any of this is shaped the way it is: without HttpOnly, one
+        // injected script on the page walks off with a working admin session.
+        var response = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest(TicketApiFactory.AdminEmail, TicketApiFactory.Password));
+
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+
+        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=lax", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/", cookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Login_never_returns_the_token_in_the_body()
+    {
+        // The complement of the test above. HttpOnly is worthless if the same
+        // token is also handed to the page in JSON for it to stash somewhere.
+        var response = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest(TicketApiFactory.AdminEmail, TicketApiFactory.Password));
+
+        var token = TicketApiFactory.TokenFromCookie(response);
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain(token, raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("accessToken", raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task The_session_cookie_alone_authenticates_an_edit()
+    {
+        // A browser sends no Authorization header. If this fails, the frontend is
+        // signed out no matter what the login screen appeared to do.
+        using var admin = await _factory.CreateAuthenticatedClientAsync(TicketApiFactory.AdminEmail);
+
+        Assert.Null(admin.DefaultRequestHeaders.Authorization);
+
+        var response = await admin.PutAsJsonAsync($"/api/tickets/{await AnyTicketIdAsync()}", AnyEdit());
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task A_bearer_token_still_authenticates_for_non_browser_callers()
+    {
+        using var admin = await _factory.CreateBearerClientAsync(TicketApiFactory.AdminEmail);
+
+        var response = await admin.PutAsJsonAsync($"/api/tickets/{await AnyTicketIdAsync()}", AnyEdit());
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    // ----------------------------------------------------- describing the session
+
+    [Fact]
+    public async Task Me_reports_who_the_cookie_belongs_to()
+    {
+        using var admin = await _factory.CreateAuthenticatedClientAsync(TicketApiFactory.AdminEmail);
+
+        var body = await admin.GetFromJsonAsync<LoginResponse>("/api/auth/me", TicketApiFactory.Json);
+
+        Assert.Equal(TicketApiFactory.AdminEmail, body!.Email);
+        Assert.Equal("Admin", body.Role);
+        Assert.True(body.ExpiresAt > DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task Me_without_a_session_is_401()
+    {
+        // The frontend restores a session by calling this on boot, so the
+        // signed-out answer has to be the ordinary 401 it knows to expect.
+        var response = await _client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // ------------------------------------------------------------- signing out
+
+    [Fact]
+    public async Task Logout_clears_the_session()
+    {
+        using var admin = await _factory.CreateAuthenticatedClientAsync(TicketApiFactory.AdminEmail);
+
+        var logout = await admin.PostAsync("/api/auth/logout", content: null);
+        logout.EnsureSuccessStatusCode();
+
+        // The page cannot delete an HttpOnly cookie itself, so if the server does
+        // not expire it here, "sign out" only hides the UI.
+        var after = await admin.PutAsJsonAsync($"/api/tickets/{await AnyTicketIdAsync()}", AnyEdit());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Logout_without_a_session_still_succeeds()
+    {
+        var response = await _client.PostAsync("/api/auth/logout", content: null);
+
+        response.EnsureSuccessStatusCode();
     }
 
     [Fact]

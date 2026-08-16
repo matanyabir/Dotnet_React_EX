@@ -6,7 +6,7 @@ namespace MX.Application.Auth;
 /// <summary>Signs users in.</summary>
 public interface IAuthService
 {
-    Task<Result<LoginResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
+    Task<Result<SignInResult>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -43,7 +43,7 @@ public sealed class AuthService : IAuthService
         _decoyHash = new Lazy<string>(() => passwordHasher.Hash(Guid.NewGuid().ToString()));
     }
 
-    public async Task<Result<LoginResponse>> LoginAsync(
+    public async Task<Result<SignInResult>> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -51,7 +51,7 @@ public sealed class AuthService : IAuthService
 
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
-            return Result<LoginResponse>.Invalid("Email address and password are both required.");
+            return Result<SignInResult>.Invalid("Email address and password are both required.");
         }
 
         var user = await _users.FindByEmailAsync(request.Email, cancellationToken).ConfigureAwait(false);
@@ -60,17 +60,17 @@ public sealed class AuthService : IAuthService
         {
             // Burn the same work a real verification would, then reject.
             _ = _passwordHasher.Verify(request.Password, _decoyHash.Value);
-            return Result<LoginResponse>.Unauthorized(RejectionMessage);
+            return Result<SignInResult>.Unauthorized(RejectionMessage);
         }
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            return Result<LoginResponse>.Unauthorized(RejectionMessage);
+            return Result<SignInResult>.Unauthorized(RejectionMessage);
         }
 
         var token = _tokenIssuer.Issue(user);
 
-        return Result<LoginResponse>.Success(
-            new LoginResponse(token.Token, token.ExpiresAt, user.Email, user.Role));
+        return Result<SignInResult>.Success(
+            new SignInResult(token.Token, token.ExpiresAt, user.Email, user.Role));
     }
 }

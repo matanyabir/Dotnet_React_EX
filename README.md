@@ -205,6 +205,19 @@ message if one is missing outside development.
 dotnet user-secrets set "Auth:Jwt:SigningKey" "<32+ random characters>" --project backend/MX.Api
 ```
 
+The token itself is returned as an `HttpOnly` cookie and never in the response body,
+so no code on the page — including anything injected into it — can read the
+credential it is sending. The frontend therefore has no token to inspect and calls
+`GET /api/auth/me` to learn who it is signed in as. `Authorization: Bearer` is still
+accepted for callers that are not browsers.
+
+Cookies travel automatically, which is the opening CSRF uses, so three things close
+it and all three have to hold: `SameSite=Lax` keeps the cookie off cross-site
+state-changing requests, editing requires a JSON content type that a forged form
+cannot set without a preflight, and the CORS policy names the origins it will accept
+credentials from. `Secure` and the `__Host-` cookie prefix are applied whenever the
+request arrives over HTTPS.
+
 ### Storage
 
 `Storage:DataFilePath` defaults to `Data/dataset.json` relative to the API's content
@@ -218,7 +231,9 @@ visible rather than asserted. Uploaded images go to `wwwroot/uploads` and are se
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | — | Email and password for a JWT. |
+| `POST` | `/api/auth/login` | — | Email and password for a session cookie. |
+| `POST` | `/api/auth/logout` | — | Clears the session cookie. |
+| `GET` | `/api/auth/me` | signed in | Who the caller's session belongs to. |
 | `GET` | `/api/tickets?status=&search=&page=&pageSize=` | — | One page of the list, filtered. `status=All` or omitted means no filter. |
 | `GET` | `/api/tickets/statuses` | — | The status vocabulary, for dropdowns. |
 | `GET` | `/api/tickets/{id}` | — | One ticket by id. |
@@ -261,13 +276,14 @@ curl -X POST http://localhost:5099/api/tickets \
   -F "name=Ada Lovelace" -F "email=ada@example.com" \
   -F "description=The printer is on fire." -F "image=@photo.png"
 
-# Sign in, then close a ticket
-TOKEN=$(curl -s -X POST http://localhost:5099/api/auth/login \
+# Sign in, then close a ticket. The token comes back as a cookie rather than in
+# the body, so the jar is what carries the session from one call to the next.
+curl -s -c jar.txt -X POST http://localhost:5099/api/auth/login \
   -H 'Content-Type: application/json' \
-  --data-binary '{"email":"admin@example.com","password":"Admin123!"}' | jq -r .accessToken)
+  --data-binary '{"email":"admin@example.com","password":"Admin123!"}'
 
 curl -X PUT "http://localhost:5099/api/tickets/$ID" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -b jar.txt -H 'Content-Type: application/json' \
   -d '{"status":"Resolved","resolution":"Replaced the drain pump."}'
 ```
 
@@ -285,9 +301,17 @@ curl -X PUT "http://localhost:5099/api/tickets/$ID" \
   file is replaced atomically so a crash cannot truncate it. That is correct for one
   instance and would not survive being scaled out — the point at which a real database
   earns its place.
-- **The session token is kept in `localStorage`**, so a refresh does not sign the admin
-  out mid-triage. It is readable by any script on the origin, which is an acceptable
-  trade for short-lived tokens guarding sample data and would want revisiting otherwise.
+- **The session cookie assumes the UI and the API are same-site.** `SameSite=Lax` is
+  what keeps the cookie off a cross-site forged request, and it also means the cookie
+  is not sent at all if the two are ever deployed to genuinely different sites — the
+  frontend would look permanently signed out. Ports do not count, so
+  `localhost:5173` → `localhost:5099` is fine, as is `app.example.com` →
+  `api.example.com`. A split across registrable domains would need `SameSite=None`
+  plus a CSRF token to replace the protection that gives up.
+- **Nothing revokes a token before it expires.** Signing out deletes the cookie, which
+  ends the session for that browser, but the token stays valid until its expiry if it
+  was captured beforehand. The `jti` claim exists so a denylist could be added; there
+  is no store behind it yet.
 - **The supplied dataset references images that were never shipped**
   (`uploads/laptop_issue.jpg` and friends), so those attachments 404. The UI says so
   rather than showing a broken-image icon.

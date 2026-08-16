@@ -28,7 +28,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   {session.email}
                   {isAdmin ? ' · admin' : ''}
                 </span>
-                <button type="button" className={styles.headerButton} onClick={signOut}>
+                <button
+                  type="button"
+                  className={styles.headerButton}
+                  // Signing out is a round-trip now — the cookie is the server's
+                  // to delete — and a click handler has nowhere to put a promise.
+                  onClick={() => void signOut()}
+                >
                   Sign out
                 </button>
               </>

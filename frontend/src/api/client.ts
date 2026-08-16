@@ -1,24 +1,17 @@
 /**
  * The single place the frontend talks to the API.
  *
- * Everything goes through `request`, so the base URL, the bearer token, and the
- * translation of RFC 9457 ProblemDetails into a readable error are each written
- * once rather than at every call site.
+ * Everything goes through `request`, so the base URL, the credentials policy,
+ * and the translation of RFC 9457 ProblemDetails into a readable error are each
+ * written once rather than at every call site.
+ *
+ * There is no token variable here, and that is the point: the session is an
+ * HttpOnly cookie the browser attaches itself, so this code — and any other
+ * script that ends up on the page — has no way to read the credential it is
+ * sending.
  */
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5099').replace(/\/$/, '');
-
-/**
- * Held in a module variable rather than read from React state, so non-component
- * code can attach it. AuthContext owns the value and pushes it here; this module
- * never reads storage itself, which keeps "where does the token live" a single
- * answerable question.
- */
-let accessToken: string | null = null;
-
-export function setAccessToken(token: string | null): void {
-  accessToken = token;
-}
 
 /** A failed request, carrying the messages the API considered safe to show. */
 export class ApiError extends Error {
@@ -88,10 +81,6 @@ interface RequestOptions {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
 
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
   // Content-Type is set for JSON only. For FormData the browser must set it
   // itself, because it has to append the multipart boundary.
   if (options.body !== undefined) {
@@ -101,6 +90,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
+
+    // The API is on a different origin from the dev server, so the session
+    // cookie is only sent if the request asks for it explicitly.
+    credentials: 'include',
     body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     signal: options.signal,
   });
