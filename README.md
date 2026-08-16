@@ -211,6 +211,15 @@ credential it is sending. The frontend therefore has no token to inspect and cal
 `GET /api/auth/me` to learn who it is signed in as. `Authorization: Bearer` is still
 accepted for callers that are not browsers.
 
+`POST /api/auth/login` is rate limited, because it is the only route that is both
+anonymous by necessity and worth attacking by repetition — and every wrong guess
+costs the API a deliberately expensive PBKDF2 verification. Ten attempts per client
+address per five minutes (`Auth:LoginRateLimit`); past that the endpoint answers
+`429` with a `Retry-After` header and stops checking credentials at all, so a correct
+password guessed on the eleventh try is no more useful than a wrong one. The count is
+per address rather than per account on purpose: keying it to the submitted email
+would let anyone lock a named admin out by failing logins on their behalf.
+
 Cookies travel automatically, which is the opening CSRF uses, so three things close
 it and all three have to hold: `SameSite=Lax` keeps the cookie off cross-site
 state-changing requests, editing requires a JSON content type that a forged form
@@ -231,7 +240,7 @@ visible rather than asserted. Uploaded images go to `wwwroot/uploads` and are se
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | — | Email and password for a session cookie. |
+| `POST` | `/api/auth/login` | — | Email and password for a session cookie. Rate limited; `429` past the cap. |
 | `POST` | `/api/auth/logout` | — | Clears the session cookie. |
 | `GET` | `/api/auth/me` | signed in | Who the caller's session belongs to. |
 | `GET` | `/api/tickets?status=&search=&page=&pageSize=` | — | One page of the list, filtered. `status=All` or omitted means no filter. |
@@ -312,6 +321,13 @@ curl -X PUT "http://localhost:5099/api/tickets/$ID" \
   ends the session for that browser, but the token stays valid until its expiry if it
   was captured beforehand. The `jti` claim exists so a denylist could be added; there
   is no store behind it yet.
+- **The login rate limit counts the connecting address, and is per process.** Behind a
+  reverse proxy that address is the proxy, which collapses every client into one
+  bucket — deploying that way needs `UseForwardedHeaders` with the proxy named in
+  `KnownProxies`, left out here because enabling it without pinning the trusted proxy
+  lets any caller spoof `X-Forwarded-For` and mint a fresh bucket per request. The
+  counters also live in memory, so scaling out multiplies the effective limit by the
+  instance count; a shared store is the same boundary the ticket data crosses.
 - **The supplied dataset references images that were never shipped**
   (`uploads/laptop_issue.jpg` and friends), so those attachments 404. The UI says so
   rather than showing a broken-image icon.

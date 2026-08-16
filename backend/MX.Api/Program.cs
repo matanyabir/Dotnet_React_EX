@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddLoginRateLimiting(builder.Configuration);
 
 // Turns unhandled exceptions into RFC 9457 ProblemDetails instead of an HTML
 // error page, so every failure the client sees has the same shape.
@@ -79,6 +80,13 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseCors(FrontendCorsPolicy);
+
+// After CORS, before authentication, and both placements matter. After, because
+// a 429 the browser is not allowed to read is indistinguishable from the API
+// being down, and the CORS headers are what make it readable. Before, because
+// the point of turning a flood away is to turn it away without first paying for
+// a password hash.
+app.UseRateLimiter();
 
 // Order matters: authentication establishes *who* the caller is, authorization
 // then decides what they may do. Swapped, every protected endpoint would see an

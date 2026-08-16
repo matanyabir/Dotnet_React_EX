@@ -23,7 +23,10 @@ internal static class AuthEndpoints
         group.MapPost("/login", LoginAsync)
             .WithName("Login")
             .WithSummary("Exchanges email and password for a session cookie.")
-            .AllowAnonymous();
+            .AllowAnonymous()
+            // The other half of "anonymous by necessity": if anyone may knock,
+            // the number of times they may knock has to be finite.
+            .RequireRateLimiting(LoginRateLimiter.PolicyName);
 
         group.MapPost("/logout", Logout)
             .WithName("Logout")

@@ -31,6 +31,34 @@ public sealed class JwtOptions
     public int ExpiryMinutes { get; set; } = 60;
 }
 
+/// <summary>
+/// How hard one client may hammer the sign-in endpoint, bound from
+/// "Auth:LoginRateLimit".
+///
+/// Sign-in is the one route where a caller can spend the server's CPU without
+/// having proved anything first — a wrong password still costs a full
+/// 600,000-iteration PBKDF2 verification — and it is the one route where
+/// repetition alone eventually succeeds. Both problems have the same answer:
+/// cap how often a given client may try.
+/// </summary>
+public sealed class LoginRateLimitOptions
+{
+    public const string SectionName = "Auth:LoginRateLimit";
+
+    /// <summary>
+    /// Attempts allowed per client per <see cref="WindowSeconds"/>. Sized to sit
+    /// well above a person who has forgotten which password they used and well
+    /// below anything that could work through a word list.
+    /// </summary>
+    [Range(1, 10_000)]
+    public int PermitLimit { get; set; } = 10;
+
+    [Range(1, 24 * 60 * 60)]
+    public int WindowSeconds { get; set; } = 300;
+
+    public TimeSpan Window => TimeSpan.FromSeconds(WindowSeconds);
+}
+
 /// <summary>One sign-in account, bound from an entry in "Auth:Users".</summary>
 public sealed class UserOptions
 {
