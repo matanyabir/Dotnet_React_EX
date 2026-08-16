@@ -10,8 +10,11 @@ namespace MX.Application.Tickets;
 /// </summary>
 public interface ITicketService
 {
-    /// <summary>All tickets matching the filters, newest first.</summary>
-    Task<Result<IReadOnlyList<TicketDto>>> ListAsync(
+    /// <summary>
+    /// One page of the tickets matching the filters, newest first, alongside the
+    /// total the filters matched.
+    /// </summary>
+    Task<Result<PagedResult<TicketDto>>> ListAsync(
         TicketQuery query,
         CancellationToken cancellationToken = default);
 

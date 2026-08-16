@@ -26,7 +26,7 @@ internal static class TicketEndpoints
 
         group.MapGet("/", ListTicketsAsync)
             .WithName("ListTickets")
-            .WithSummary("Lists tickets, optionally filtered by status and free text.");
+            .WithSummary("Lists one page of tickets, optionally filtered by status and free text.");
 
         // Declared before "/{id:guid}" for readability; the guid constraint is what
         // actually keeps the two apart, so "statuses" can never be read as an id.
@@ -57,13 +57,27 @@ internal static class TicketEndpoints
         return group;
     }
 
+    /// <summary>
+    /// <c>page</c> and <c>pageSize</c> are optional: a caller that has never heard
+    /// of paging gets the first page at the default size rather than an error.
+    /// They are bound as nullable so "absent" and "explicitly zero" stay
+    /// distinguishable — the latter is a client bug and is answered with a 400.
+    /// </summary>
     private static async Task<IResult> ListTicketsAsync(
         ITicketService tickets,
         string? status,
         string? search,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
-        var result = await tickets.ListAsync(new TicketQuery(status, search), cancellationToken);
+        var query = new TicketQuery(
+            status,
+            search,
+            page ?? TicketQuery.DefaultPage,
+            pageSize ?? TicketQuery.DefaultPageSize);
+
+        var result = await tickets.ListAsync(query, cancellationToken);
         return result.ToHttpResult();
     }
 

@@ -3,12 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import Modal from '../components/Modal';
 import NewTicketForm from '../components/NewTicketForm';
+import Pager from '../components/Pager';
 import StatusPill from '../components/StatusPill';
 import { Banner, EmptyState, LoadingRows } from '../components/Feedback';
 import { useTickets } from '../hooks/useTickets';
 import { useDebounced } from '../hooks/useDebounced';
 import { getStatuses } from '../api/tickets';
-import { ANY_STATUS, TICKET_STATUSES, type Ticket, type TicketStatus } from '../types/ticket';
+import {
+  ANY_STATUS,
+  DEFAULT_PAGE_SIZE,
+  TICKET_STATUSES,
+  type Ticket,
+  type TicketStatus,
+} from '../types/ticket';
 import { formatDate } from '../utils/format';
 import styles from './TicketsPage.module.css';
 import ui from '../components/ui.module.css';
@@ -27,6 +34,8 @@ export default function TicketsPage() {
 
   const [status, setStatus] = useState<string>(ANY_STATUS);
   const [searchInput, setSearchInput] = useState('');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<Ticket | null>(null);
 
@@ -34,7 +43,19 @@ export default function TicketsPage() {
   // drives the request so the API is not queried per keystroke.
   const search = useDebounced(searchInput);
 
-  const { tickets, isLoading, error, refresh } = useTickets({ status, search });
+  const { tickets, page, isLoading, error, refresh } = useTickets({
+    status,
+    search,
+    page: pageNumber,
+    pageSize,
+  });
+
+  // Any change to what is being listed sends you back to the start. Staying on
+  // page 4 while narrowing a search to three results would show an empty screen
+  // and look like a failure rather than a filter.
+  useEffect(() => {
+    setPageNumber(1);
+  }, [status, search, pageSize]);
 
   // Fetched rather than hardcoded, so the dropdown always offers exactly what
   // the server accepts. TICKET_STATUSES is the fallback if the call fails.
@@ -49,10 +70,21 @@ export default function TicketsPage() {
   function handleCreated(ticket: Ticket) {
     setIsModalOpen(false);
     setConfirmation(ticket);
-    refresh();
+
+    // The new ticket is the newest, so it is on page 1 — jump there rather than
+    // refreshing a page it cannot appear on. On page 1 already, refresh anyway:
+    // setting the same page number would not re-run the fetch.
+    if (pageNumber === 1) {
+      refresh();
+    } else {
+      setPageNumber(1);
+    }
   }
 
   const isFiltered = status !== ANY_STATUS || search.trim().length > 0;
+
+  // An empty page that is not an empty result: there are tickets, just not here.
+  const isPastTheEnd = page.totalCount > 0 && pageNumber > 1;
 
   return (
     <AppShell>
@@ -104,9 +136,28 @@ export default function TicketsPage() {
 
       {error && <Banner tone="error">{error}</Banner>}
 
-      {isLoading && <LoadingRows />}
+      {/* Skeletons only when there is nothing to show yet. Replacing a full table
+          with four placeholder rows on every page change collapses the page,
+          which scrolls the pager out from under the cursor that just used it —
+          so a page change dims the existing rows instead. */}
+      {isLoading && tickets.length === 0 && <LoadingRows />}
 
-      {!isLoading && !error && tickets.length === 0 && (
+      {!isLoading && !error && tickets.length === 0 && isPastTheEnd && (
+        // Reachable if the result shrinks while you are deep in it — another
+        // admin closing tickets you had filtered for, say. An empty page with no
+        // way out reads as a broken screen, so offer the way out.
+        <EmptyState title="This page is empty now">
+          <button
+            type="button"
+            className={`${ui.button} ${ui.secondary}`}
+            onClick={() => setPageNumber(1)}
+          >
+            Back to the first page
+          </button>
+        </EmptyState>
+      )}
+
+      {!isLoading && !error && tickets.length === 0 && !isPastTheEnd && (
         <EmptyState title={isFiltered ? 'No tickets match those filters' : 'No tickets yet'}>
           {isFiltered
             ? 'Try a different status, or clear the search box.'
@@ -114,14 +165,12 @@ export default function TicketsPage() {
         </EmptyState>
       )}
 
-      {!isLoading && !error && tickets.length > 0 && (
+      {!error && tickets.length > 0 && (
         <>
-          <p className={styles.count}>
-            {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'}
-            {isFiltered ? ' matching' : ''}
-          </p>
-
-          <div className={styles.tableWrap}>
+          <div
+            className={`${styles.tableWrap} ${isLoading ? styles.stale : ''}`}
+            aria-busy={isLoading}
+          >
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -175,6 +224,13 @@ export default function TicketsPage() {
               </tbody>
             </table>
           </div>
+
+          <Pager
+            page={page}
+            onPageChange={setPageNumber}
+            onPageSizeChange={setPageSize}
+            noun={isFiltered ? 'matching tickets' : 'tickets'}
+          />
         </>
       )}
 

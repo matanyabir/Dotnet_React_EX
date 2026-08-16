@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MX.Application.Tickets;
 using MX.Application.Tickets.Dtos;
+using TicketPage = MX.Application.Common.PagedResult<MX.Application.Tickets.Dtos.TicketDto>;
 
 namespace MX.Api.Tests;
 
@@ -45,13 +47,22 @@ public sealed class TicketEndpointsTests : IDisposable
 
     // ----------------------------------------------------------------- listing
 
+    /// <summary>The list endpoint's response, deserialised the way a client would.</summary>
+    private async Task<TicketPage> ListAsync(string query = "")
+    {
+        var page = await _client.GetFromJsonAsync<TicketPage>($"/api/tickets{query}", TicketApiFactory.Json);
+        Assert.NotNull(page);
+
+        return page;
+    }
+
     [Fact]
     public async Task Get_tickets_returns_the_seeded_dataset()
     {
-        var tickets = await _client.GetFromJsonAsync<List<TicketDto>>("/api/tickets", TicketApiFactory.Json);
+        var page = await ListAsync();
 
-        Assert.NotNull(tickets);
-        Assert.Equal(5, tickets.Count);
+        Assert.Equal(5, page.Items.Count);
+        Assert.Equal(5, page.TotalCount);
     }
 
     [Fact]
@@ -67,20 +78,18 @@ public sealed class TicketEndpointsTests : IDisposable
     [Fact]
     public async Task Get_tickets_filters_by_status()
     {
-        var tickets = await _client.GetFromJsonAsync<List<TicketDto>>(
-            "/api/tickets?status=In%20Progress", TicketApiFactory.Json);
+        var page = await ListAsync("?status=In%20Progress");
 
-        Assert.NotEmpty(tickets!);
-        Assert.All(tickets!, t => Assert.Equal("In Progress", t.Status));
+        Assert.NotEmpty(page.Items);
+        Assert.All(page.Items, t => Assert.Equal("In Progress", t.Status));
     }
 
     [Fact]
     public async Task Get_tickets_filters_by_free_text()
     {
-        var tickets = await _client.GetFromJsonAsync<List<TicketDto>>(
-            "/api/tickets?search=washing", TicketApiFactory.Json);
+        var page = await ListAsync("?search=washing");
 
-        var match = Assert.Single(tickets!);
+        var match = Assert.Single(page.Items);
         Assert.Contains("washing", match.Description, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -101,13 +110,110 @@ public sealed class TicketEndpointsTests : IDisposable
         Assert.Equal(["New", "In Progress", "Closed", "Resolved"], statuses);
     }
 
+    // ----------------------------------------------------------------- paging
+
+    [Fact]
+    public async Task Get_tickets_defaults_to_the_first_page()
+    {
+        // A client that has never heard of paging must still work unchanged.
+        var page = await ListAsync();
+
+        Assert.Equal(1, page.Page);
+        Assert.Equal(TicketQuery.DefaultPageSize, page.PageSize);
+        Assert.Equal(1, page.TotalPages);
+        Assert.False(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task Get_tickets_honours_page_and_page_size()
+    {
+        var page = await ListAsync("?page=2&pageSize=2");
+
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(2, page.Page);
+        Assert.Equal(5, page.TotalCount);
+        Assert.Equal(3, page.TotalPages);
+        Assert.True(page.HasPreviousPage);
+        Assert.True(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task Get_tickets_walks_the_whole_dataset_across_pages()
+    {
+        var seen = new List<Guid>();
+
+        for (var page = 1; page <= 3; page++)
+        {
+            var body = await ListAsync($"?page={page}&pageSize=2");
+            seen.AddRange(body.Items.Select(t => t.Id));
+        }
+
+        Assert.Equal(5, seen.Count);
+        Assert.Equal(5, seen.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Get_tickets_beyond_the_last_page_returns_an_empty_page_not_a_404()
+    {
+        var page = await ListAsync("?page=99&pageSize=2");
+
+        Assert.Empty(page.Items);
+        Assert.Equal(5, page.TotalCount);
+        Assert.False(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task Get_tickets_pages_within_the_filtered_result()
+    {
+        // The total must describe the filtered match, not the dataset.
+        var page = await ListAsync("?status=New&pageSize=1");
+
+        Assert.Single(page.Items);
+        Assert.Equal("New", page.Items[0].Status);
+        Assert.True(page.TotalCount < 5);
+    }
+
+    [Theory]
+    [InlineData("?page=0")]
+    [InlineData("?page=-1")]
+    [InlineData("?pageSize=0")]
+    [InlineData("?pageSize=101")]
+    public async Task Get_tickets_rejects_impossible_paging_with_a_validation_problem(string query)
+    {
+        var response = await _client.GetAsync($"/api/tickets{query}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Get_tickets_rejects_a_non_numeric_page()
+    {
+        var response = await _client.GetAsync("/api/tickets?page=eleven");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_tickets_serialises_the_pager_fields_the_frontend_reads()
+    {
+        // The envelope's property names are a contract with the browser; a rename
+        // here would surface there as an undefined pager rather than a build error.
+        var raw = await _client.GetStringAsync("/api/tickets?page=1&pageSize=2");
+
+        foreach (var field in (string[])
+                 ["items", "page", "pageSize", "totalCount", "totalPages", "hasPreviousPage", "hasNextPage"])
+        {
+            Assert.Contains($"\"{field}\":", raw, StringComparison.Ordinal);
+        }
+    }
+
     // -------------------------------------------------------------- single get
 
     [Fact]
     public async Task Get_ticket_by_id_returns_it()
     {
-        var all = await _client.GetFromJsonAsync<List<TicketDto>>("/api/tickets", TicketApiFactory.Json);
-        var expected = all![0];
+        var expected = (await ListAsync()).Items[0];
 
         var actual = await _client.GetFromJsonAsync<TicketDto>(
             $"/api/tickets/{expected.Id}", TicketApiFactory.Json);
@@ -304,9 +410,9 @@ public sealed class TicketEndpointsTests : IDisposable
         // changed the status spelling, the next read would fail or come back short.
         await CreateAsync(AnyNewTicket());
 
-        var tickets = await _client.GetFromJsonAsync<List<TicketDto>>("/api/tickets", TicketApiFactory.Json);
+        var page = await ListAsync();
 
-        Assert.Equal(6, tickets!.Count);
-        Assert.Contains(tickets, t => t.Status == "In Progress");
+        Assert.Equal(6, page.TotalCount);
+        Assert.Contains(page.Items, t => t.Status == "In Progress");
     }
 }

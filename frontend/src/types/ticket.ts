@@ -24,6 +24,28 @@ export type TicketStatus = (typeof TICKET_STATUSES)[number];
 /** The filter dropdown's "no filter" option — the value the backend recognises. */
 export const ANY_STATUS = 'All';
 
+/**
+ * One page of a list response, mirroring the backend's `PagedResult<T>`.
+ *
+ * `totalCount` is the size of the whole match rather than of `items`, which is
+ * what lets the pager say "of 9" instead of only offering a "next".
+ */
+export interface Page<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+/** Rows per page. Mirrors the server's default; the request states it explicitly. */
+export const DEFAULT_PAGE_SIZE = 20;
+
+/** The sizes the list screen offers. All within the server's cap of 100. */
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+
 export interface Ticket {
   id: string;
   name: string;

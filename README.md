@@ -38,6 +38,7 @@ and Node.js 20+.
 |---|---|
 | **File a ticket** | Anonymous. Name, email, description, optional image. |
 | **Track a ticket** | `/tickets/{id}` — the link sent in the confirmation email. Works on a cold load. |
+| **Page through them** | 20 a page by default, or 10/50/100. Composes with the filters. |
 | **Triage** | Admin only: change status, write a resolution. |
 | **Notify** | An email on create, on status change, and on resolution change — and on nothing else. |
 | **Summarise** | A one-line AI précis of each new ticket. |
@@ -50,20 +51,21 @@ and Node.js 20+.
 
 Both were captured at a 700px-wide viewport, so the list shows the responsive card
 layout rather than the wide table. Above 760px the same list renders as the table in
-[`docs/ticket-manage.png`](docs/ticket-manage.png).
+[`docs/ticket-manage.png`](docs/ticket-manage.png). Both predate the pager, which sits
+below the last row.
 
 ---
 
 ## Running the tests
 
 ```bash
-dotnet test          # 224 tests
+dotnet test          # 249 tests
 ```
 
 ```
-MX.Application.Tests    86   use cases and domain rules, every port mocked
+MX.Application.Tests   100   use cases and domain rules, every port mocked
 MX.Infrastructure.Tests 74   JSON persistence, password hashing, uploads, AI resilience
-MX.Api.Tests            64   real HTTP through the real pipeline, temp dataset copy
+MX.Api.Tests            75   real HTTP through the real pipeline, temp dataset copy
 ```
 
 The frontend is checked by its build — `cd frontend && npm run build` — which
@@ -116,6 +118,17 @@ spelling lives — shared by the JSON store and the HTTP API so the two cannot d
 cannot drift either. A test rewrites the supplied `dataset.json` and requires the
 bytes to come back identical, which pins the status spelling, the timestamp format,
 property order, and character encoding all at once.
+
+**The list is paged, and a bad page is a 400 rather than a guess.** `GET
+/api/tickets` returns one page inside an envelope carrying `totalCount`, so the UI
+can say "page 2 of 9" instead of only offering a "next". Two choices are worth
+naming. `pageSize` is capped at 100 and an over-large value is *rejected*, not
+clamped — silently returning a tenth of what was asked for is a bug that surfaces
+as missing data much later. A page *past* the end, though, is an empty page and a
+200: that is what happens when a filter shrinks the result under someone, and it
+is not their mistake. The sort is stable, which paging depends on — two tickets
+sharing a timestamp must not swap places between the request for page 1 and the
+request for page 2, or one of them appears twice and the other never.
 
 **Uploads are treated as hostile.** The stored filename is generated rather than taken
 from the upload, which removes path traversal instead of filtering for it; the image
@@ -189,7 +202,7 @@ visible rather than asserted. Uploaded images go to `wwwroot/uploads` and are se
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
 | `POST` | `/api/auth/login` | — | Email and password for a JWT. |
-| `GET` | `/api/tickets?status=&search=` | — | List, filtered. `status=All` or omitted means no filter. |
+| `GET` | `/api/tickets?status=&search=&page=&pageSize=` | — | One page of the list, filtered. `status=All` or omitted means no filter. |
 | `GET` | `/api/tickets/statuses` | — | The status vocabulary, for dropdowns. |
 | `GET` | `/api/tickets/{id}` | — | One ticket by id. |
 | `POST` | `/api/tickets` | — | File a ticket. `multipart/form-data` (with an optional `image`) or JSON. |
@@ -203,6 +216,27 @@ parses one error format.
 
 On `PUT`, omitting a field leaves it unchanged; sending `""` for `resolution` clears it.
 That distinction is what lets status and resolution be edited independently.
+
+The list endpoint answers with a page, not a bare array. `page` defaults to 1 and
+`pageSize` to 20, with a maximum of 100; both are optional, so a client that ignores
+paging still works and simply gets the first page.
+
+```jsonc
+{
+  "items": [ /* … TicketDto … */ ],
+  "page": 2,
+  "pageSize": 20,
+  "totalCount": 53,      // the whole match, not this page
+  "totalPages": 3,
+  "hasPreviousPage": true,
+  "hasNextPage": true
+}
+```
+
+```bash
+# The second page of closed tickets, ten at a time
+curl -s "http://localhost:5099/api/tickets?status=Closed&page=2&pageSize=10"
+```
 
 ```bash
 # File a ticket with an image
@@ -224,6 +258,12 @@ curl -X PUT "http://localhost:5099/api/tickets/$ID" \
 
 ## Known limitations
 
+- **Paging is applied in memory, after the whole file is read.** The client is
+  protected — a request can never ask for more than 100 rows — but the server is not:
+  `JsonTicketRepository` has no way to fetch a slice, so a dataset large enough to
+  strain the process still gets loaded whole on every list. Pushing `Skip`/`Take`
+  down to the store is the same boundary a real database would cross, and the
+  `ITicketRepository` port is where that change would land.
 - **Concurrent writes** are serialised through a semaphore in a single process, and the
   file is replaced atomically so a crash cannot truncate it. That is correct for one
   instance and would not survive being scaled out — the point at which a real database

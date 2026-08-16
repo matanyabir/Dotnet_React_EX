@@ -72,7 +72,7 @@ public class TicketServiceTests
         var result = await _service.ListAsync(TicketQuery.Unfiltered);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(3, result.Value!.Count);
+        Assert.Equal(3, result.Value!.Items.Count);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class TicketServiceTests
 
         var result = await _service.ListAsync(TicketQuery.Unfiltered);
 
-        Assert.Equal(["Newest", "Middle", "Oldest"], result.Value!.Select(t => t.Name));
+        Assert.Equal(["Newest", "Middle", "Oldest"], result.Value!.Items.Select(t => t.Name));
     }
 
     [Fact]
@@ -98,8 +98,8 @@ public class TicketServiceTests
 
         var result = await _service.ListAsync(new TicketQuery(Status: "In Progress"));
 
-        Assert.Equal(2, result.Value!.Count);
-        Assert.All(result.Value!, t => Assert.Equal("In Progress", t.Status));
+        Assert.Equal(2, result.Value!.Items.Count);
+        Assert.All(result.Value!.Items, t => Assert.Equal("In Progress", t.Status));
     }
 
     [Theory]
@@ -116,7 +116,7 @@ public class TicketServiceTests
         var result = await _service.ListAsync(new TicketQuery(Status: status));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value!.Count);
+        Assert.Equal(2, result.Value!.Items.Count);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class TicketServiceTests
         var result = await _service.ListAsync(new TicketQuery(Search: "jo"));
 
         // Matches "Emily Johnson" and "John Doe", not "Jane Smith".
-        Assert.Equal(2, result.Value!.Count);
+        Assert.Equal(2, result.Value!.Items.Count);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class TicketServiceTests
 
         var result = await _service.ListAsync(new TicketQuery(Search: "washing"));
 
-        var match = Assert.Single(result.Value!);
+        var match = Assert.Single(result.Value!.Items);
         Assert.Equal("Someone", match.Name);
     }
 
@@ -164,7 +164,7 @@ public class TicketServiceTests
 
         var result = await _service.ListAsync(new TicketQuery(Status: "Closed", Search: "printer"));
 
-        var match = Assert.Single(result.Value!);
+        var match = Assert.Single(result.Value!.Items);
         Assert.Equal("Match", match.Name);
     }
 
@@ -176,7 +176,178 @@ public class TicketServiceTests
 
         var result = await _service.ListAsync(TicketQuery.Unfiltered);
 
-        Assert.Equal("In Progress", result.Value!.Single().Status);
+        Assert.Equal("In Progress", result.Value!.Items.Single().Status);
+    }
+
+    // ---------------------------------------------------------------- paging
+
+    /// <summary>
+    /// <paramref name="count"/> tickets that all share one timestamp.
+    ///
+    /// Identical timestamps are the case paging is most likely to get wrong: the
+    /// sort has nothing to separate them, so an unstable one could order them
+    /// differently for each page request and drop a ticket out of the walk.
+    /// </summary>
+    private static Ticket[] SeededBatch(int count)
+    {
+        var created = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero);
+
+        return [.. Enumerable.Range(1, count).Select(n => Ticket.Restore(
+            Guid.NewGuid(), $"Customer {n:D3}", "customer@example.com", $"Issue number {n}.",
+            summary: null, imageUrl: null, status: TicketStatus.New, resolution: null,
+            createdAt: created, updatedAt: created))];
+    }
+
+    [Fact]
+    public async Task List_returns_the_first_page_at_the_default_size()
+    {
+        GivenStored(SeededBatch(25));
+
+        var result = await _service.ListAsync(TicketQuery.Unfiltered);
+
+        var page = result.Value!;
+        Assert.Equal(TicketQuery.DefaultPageSize, page.Items.Count);
+        Assert.Equal(1, page.Page);
+        Assert.Equal(25, page.TotalCount);
+        Assert.Equal(2, page.TotalPages);
+        Assert.False(page.HasPreviousPage);
+        Assert.True(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task List_returns_the_requested_page()
+    {
+        GivenStored(SeededBatch(25));
+
+        var result = await _service.ListAsync(new TicketQuery(Page: 2, PageSize: 10));
+
+        var page = result.Value!;
+        Assert.Equal(10, page.Items.Count);
+        Assert.Equal("Customer 011", page.Items[0].Name);
+        Assert.True(page.HasPreviousPage);
+        Assert.True(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task List_marks_the_last_page_as_having_no_next()
+    {
+        GivenStored(SeededBatch(25));
+
+        var result = await _service.ListAsync(new TicketQuery(Page: 3, PageSize: 10));
+
+        var page = result.Value!;
+        Assert.Equal(5, page.Items.Count);
+        Assert.False(page.HasNextPage);
+    }
+
+    [Fact]
+    public async Task List_returns_an_empty_page_beyond_the_end_rather_than_failing()
+    {
+        // A filter that shrinks the result under someone sitting on page 9 must not
+        // greet them with an error — an empty page and an honest total let the UI
+        // send them back to page 1.
+        GivenStored(SeededBatch(5));
+
+        var result = await _service.ListAsync(new TicketQuery(Page: 9, PageSize: 10));
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value!.Items);
+        Assert.Equal(5, result.Value.TotalCount);
+        Assert.False(result.Value.HasNextPage);
+    }
+
+    [Fact]
+    public async Task List_counts_every_match_not_just_the_page()
+    {
+        GivenStored(SeededBatch(30));
+
+        var result = await _service.ListAsync(new TicketQuery(Page: 1, PageSize: 10));
+
+        Assert.Equal(10, result.Value!.Items.Count);
+        Assert.Equal(30, result.Value.TotalCount);
+    }
+
+    [Fact]
+    public async Task List_counts_only_what_the_filters_matched()
+    {
+        var stored = SeededBatch(10);
+        GivenStored([.. stored, Seeded(name: "Odd one out", description: "printer jam")]);
+
+        var result = await _service.ListAsync(new TicketQuery(Search: "printer", PageSize: 5));
+
+        Assert.Equal(1, result.Value!.TotalCount);
+        Assert.Equal(1, result.Value.TotalPages);
+    }
+
+    [Fact]
+    public async Task List_walks_every_ticket_exactly_once_across_pages()
+    {
+        // The property that actually matters: paging must partition the result. A
+        // ticket seen twice, or never, is the bug this whole feature can introduce.
+        const int Total = 47;
+        const int Size = 10;
+        GivenStored(SeededBatch(Total));
+
+        var seen = new List<Guid>();
+
+        for (var page = 1; page <= 5; page++)
+        {
+            var result = await _service.ListAsync(new TicketQuery(Page: page, PageSize: Size));
+            seen.AddRange(result.Value!.Items.Select(t => t.Id));
+        }
+
+        Assert.Equal(Total, seen.Count);
+        Assert.Equal(Total, seen.Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task List_rejects_a_page_below_one(int page)
+    {
+        GivenStored(Seeded());
+
+        var result = await _service.ListAsync(new TicketQuery(Page: page));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Validation, result.ErrorType);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(TicketQuery.MaxPageSize + 1)]
+    public async Task List_rejects_a_page_size_outside_its_bounds(int pageSize)
+    {
+        // Clamping instead would hand back a tenth of the data with no hint that
+        // anything was withheld.
+        GivenStored(Seeded());
+
+        var result = await _service.ListAsync(new TicketQuery(PageSize: pageSize));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Validation, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task List_accepts_the_largest_permitted_page_size()
+    {
+        GivenStored(SeededBatch(3));
+
+        var result = await _service.ListAsync(new TicketQuery(PageSize: TicketQuery.MaxPageSize));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value!.Items.Count);
+    }
+
+    [Fact]
+    public async Task List_reports_a_bad_status_and_a_bad_page_in_one_response()
+    {
+        GivenStored(Seeded());
+
+        var result = await _service.ListAsync(new TicketQuery(Status: "Pending", Page: 0));
+
+        Assert.Equal(2, result.Errors.Count);
     }
 
     // ------------------------------------------------------------- single get

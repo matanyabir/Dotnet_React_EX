@@ -20,16 +20,19 @@
   flex: 1 1 200px;
 }
 
-.count {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin-bottom: var(--space-3);
-}
-
 /* The table can outgrow a narrow window; scrolling it inside its own box keeps
    the page itself from scrolling sideways. */
 .tableWrap {
   overflow-x: auto;
+}
+
+/* The rows on screen while the next page loads: still readable, visibly not
+   current, and not clickable — clicking a row that is about to be replaced
+   would open whichever ticket happened to be under the pointer. */
+.stale {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 }
 
 .table {

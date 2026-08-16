@@ -36,18 +36,29 @@ public sealed class TicketService : ITicketService
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public async Task<Result<IReadOnlyList<TicketDto>>> ListAsync(
+    public async Task<Result<PagedResult<TicketDto>>> ListAsync(
         TicketQuery query,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
+        // Everything wrong with the query is reported at once, so a request with a
+        // bad status *and* a bad page does not need two round trips to fix.
+        var errors = new List<string>();
+
         var status = default(TicketStatus);
         if (query.HasStatusFilter && !TicketStatusNames.TryParse(query.Status, out status))
         {
-            return Result<IReadOnlyList<TicketDto>>.Invalid(
+            errors.Add(
                 $"'{query.Status}' is not a valid status. Expected one of: " +
                 $"{string.Join(", ", TicketStatusNames.All)}.");
+        }
+
+        errors.AddRange(query.PagingErrors);
+
+        if (errors.Count > 0)
+        {
+            return Result<PagedResult<TicketDto>>.Invalid(errors);
         }
 
         var tickets = await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false);
@@ -71,12 +82,25 @@ public sealed class TicketService : ITicketService
 
         // Newest first: a support queue is read top-down, and the freshest
         // complaint is the one nobody has looked at yet.
-        var dtos = matches
+        //
+        // LINQ's sort is documented stable, which paging now depends on: with an
+        // unstable sort, two tickets sharing a timestamp could swap places between
+        // the request for page 1 and the request for page 2, so one of them would
+        // appear twice and the other not at all.
+        var ordered = matches
             .OrderByDescending(t => t.CreatedAt)
+            .ToArray();
+
+        // Counted before the page is cut, because the pager needs the size of the
+        // whole match — not of the slice the caller can see.
+        var dtos = ordered
+            .Skip(query.Skip)
+            .Take(query.PageSize)
             .Select(t => t.ToDto())
             .ToArray();
 
-        return Result<IReadOnlyList<TicketDto>>.Success(dtos);
+        return Result<PagedResult<TicketDto>>.Success(
+            new PagedResult<TicketDto>(dtos, query.Page, query.PageSize, ordered.Length));
     }
 
     public async Task<Result<TicketDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

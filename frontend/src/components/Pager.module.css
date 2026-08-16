@@ -1,0 +1,67 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.range {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.pageSize {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.pageSize select {
+  width: auto;
+  padding: 6px 8px;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Fixed width so the row does not twitch sideways as the numbers change. */
+.position {
+  font-size: 14px;
+  color: var(--text-muted);
+  min-width: 11ch;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (width <= 560px) {
+  .pager {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* On a phone the label is redundant next to a "20" dropdown beside a pager. */
+  .pageSizeLabel {
+    display: none;
+  }
+}

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using MX.Application.Auth;
+using MX.Application.Common;
 using MX.Application.Tickets.Dtos;
 
 namespace MX.Api.Tests;
@@ -29,8 +30,10 @@ public sealed class AuthEndpointsTests : IDisposable
 
     private async Task<Guid> AnyTicketIdAsync()
     {
-        var tickets = await _client.GetFromJsonAsync<List<TicketDto>>("/api/tickets", TicketApiFactory.Json);
-        return tickets![0].Id;
+        var page = await _client.GetFromJsonAsync<PagedResult<TicketDto>>(
+            "/api/tickets", TicketApiFactory.Json);
+
+        return page!.Items[0].Id;
     }
 
     private static UpdateTicketRequest AnyEdit() => new(Status: "In Progress");

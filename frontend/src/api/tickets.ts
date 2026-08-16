@@ -1,9 +1,11 @@
 import { request } from './client';
 import {
   ANY_STATUS,
+  DEFAULT_PAGE_SIZE,
   TICKET_STATUSES,
   assertStatusesMatch,
   type CreateTicketRequest,
+  type Page,
   type Ticket,
   type TicketStatus,
   type UpdateTicketRequest,
@@ -12,6 +14,9 @@ import {
 export interface TicketFilters {
   status?: string;
   search?: string;
+  /** 1-based. Omitted means the first page. */
+  page?: number;
+  pageSize?: number;
 }
 
 /**
@@ -19,19 +24,28 @@ export interface TicketFilters {
  *
  * "All" and blank both mean "no filter"; sending them anyway would work, but
  * leaving them off keeps the URL readable and the request cacheable.
+ *
+ * Paging is the exception: `page` and `pageSize` are always sent, because a
+ * client that relies on the server's default silently changes behaviour the day
+ * that default moves — and the pager's arithmetic depends on knowing the size.
  */
-function toQuery({ status, search }: TicketFilters): string {
+function toQuery({ status, search, page, pageSize }: TicketFilters): string {
   const params = new URLSearchParams();
 
   if (status && status !== ANY_STATUS) params.set('status', status);
   if (search?.trim()) params.set('search', search.trim());
 
-  const query = params.toString();
-  return query ? `?${query}` : '';
+  params.set('page', String(page ?? 1));
+  params.set('pageSize', String(pageSize ?? DEFAULT_PAGE_SIZE));
+
+  return `?${params.toString()}`;
 }
 
-export function listTickets(filters: TicketFilters = {}, signal?: AbortSignal): Promise<Ticket[]> {
-  return request<Ticket[]>(`/api/tickets${toQuery(filters)}`, { signal });
+export function listTickets(
+  filters: TicketFilters = {},
+  signal?: AbortSignal,
+): Promise<Page<Ticket>> {
+  return request<Page<Ticket>>(`/api/tickets${toQuery(filters)}`, { signal });
 }
 
 export function getTicket(id: string, signal?: AbortSignal): Promise<Ticket> {
