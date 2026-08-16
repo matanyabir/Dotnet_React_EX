@@ -54,6 +54,14 @@ export default function NewTicketForm({ onCreated, onCancel }: NewTicketFormProp
 
     try {
       const ticket = await createTicket({ name, email, description }, image);
+
+      // The modal keeps this form mounted, so state outlives a submit. Clear
+      // what belongs to the ticket just filed — the next one is a different
+      // problem — but leave name and email, which are the same person again.
+      setDescription('');
+      setImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
       onCreated(ticket);
     } catch (cause: unknown) {
       // The server's message is more specific than anything guessable here —
