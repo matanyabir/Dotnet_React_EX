@@ -59,17 +59,49 @@ below the last row.
 ## Running the tests
 
 ```bash
-dotnet test          # 249 tests
+dotnet test                      # 264 tests
+cd frontend && npm run e2e       # 32 tests, in a real browser
 ```
 
 ```
 MX.Application.Tests   100   use cases and domain rules, every port mocked
 MX.Infrastructure.Tests 74   JSON persistence, password hashing, uploads, AI resilience
-MX.Api.Tests            75   real HTTP through the real pipeline, temp dataset copy
+MX.Api.Tests            90   real HTTP through the real pipeline, temp dataset copy
+frontend/e2e            32   Playwright: a browser against both halves at once
 ```
 
-The frontend is checked by its build — `cd frontend && npm run build` — which
-type-checks the DTOs against what the API actually returns.
+The frontend is also checked by its build — `cd frontend && npm run build` —
+which type-checks the DTOs against what the API actually returns, and now the
+end-to-end specs along with them.
+
+### The end-to-end suite
+
+`npm run e2e` starts everything it needs: the API on **5199** and Vite on
+**5273**, both seeded and torn down by Playwright. Deliberately not 5099 and
+5173, so a run cannot collide with a dev server you already have open — or,
+worse, quietly test against it and your data. The API is pointed at a temp copy
+of the pristine `dataset.json`, the same seed the .NET tests use, so a run that
+files and closes tickets leaves nothing in `git diff`.
+
+Nothing is mocked. These tests exist for the failures that only appear once both
+halves are wired together, which is why a browser is worth the setup cost:
+
+- **The session is an HttpOnly cookie**, so no script can read it, and "does a
+  refresh keep me signed in" is a question only a real cookie jar can answer.
+  Signing out is a server round-trip for the same reason, and is checked to
+  actually end the session rather than only hide the header.
+- **Same host, different port.** Vite is pinned to `127.0.0.1` rather than its
+  default `localhost`, because those are *different sites* to a browser even on
+  loopback — `SameSite=Lax` would strip the session cookie from every request
+  and the admin would never stay signed in.
+- **A 429 has to be readable.** `zz-login-rate-limit.spec.ts` spends the run's
+  sign-in allowance for real and checks the rejection arrives as words on the
+  screen. A rate limiter placed ahead of the CORS middleware would answer with a
+  429 the page cannot read, and the user would be told the server is unreachable
+  at the exact moment it is working correctly. That file is named to run last,
+  because the allowance it spends is shared by every test before it.
+
+First run downloads a browser (`npx playwright install chromium`, ~95 MB).
 
 ---
 
