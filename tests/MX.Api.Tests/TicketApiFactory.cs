@@ -73,7 +73,14 @@ public sealed class TicketApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Auth:Users:1:Role", "Viewer");
     }
 
-    /// <summary>Signs in and returns the access token.</summary>
+    /// <summary>
+    /// Signs in and returns the access token the session cookie carries.
+    ///
+    /// The token is no longer in the response body — it is set as an HttpOnly
+    /// cookie — so it is read back out of the Set-Cookie header here. That is a
+    /// thing only a test does: it exists to assert on the token's shape, not
+    /// because any client needs it.
+    /// </summary>
     public async Task<string> LoginAsync(string email, string password = Password)
     {
         using var client = CreateClient();
@@ -81,12 +88,47 @@ public sealed class TicketApiFactory : WebApplicationFactory<Program>
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, password));
         response.EnsureSuccessStatusCode();
 
-        var body = await response.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        return body!.AccessToken;
+        return TokenFromCookie(response);
     }
 
-    /// <summary>A client whose requests carry a bearer token for the given account.</summary>
+    /// <summary>The session cookie's value, or a failed assertion explaining its absence.</summary>
+    public static string TokenFromCookie(HttpResponseMessage response)
+    {
+        var cookie = response.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.FirstOrDefault(value =>
+                SessionCookieNames.Any(name => value.StartsWith($"{name}=", StringComparison.Ordinal)))
+            : null;
+
+        Assert.NotNull(cookie);
+
+        // "name=value; Path=/; ..." — everything up to the first semicolon.
+        var value = cookie.Split(';', 2)[0];
+        return value[(value.IndexOf('=') + 1)..];
+    }
+
+    /// <summary>Both spellings the API uses, depending on whether the request was HTTPS.</summary>
+    public static readonly string[] SessionCookieNames = ["__Host-mx_session", "mx_session"];
+
+    /// <summary>
+    /// A client signed in as the given account.
+    ///
+    /// The cookie handler that <see cref="WebApplicationFactory{TEntryPoint}"/>
+    /// installs by default keeps the session cookie from the login response and
+    /// replays it, which is exactly what a browser does — so these tests exercise
+    /// the path the frontend actually takes rather than a header no browser sends.
+    /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(string email)
+    {
+        var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, Password));
+        response.EnsureSuccessStatusCode();
+
+        return client;
+    }
+
+    /// <summary>A client that authenticates by header instead, as a non-browser caller would.</summary>
+    public async Task<HttpClient> CreateBearerClientAsync(string email)
     {
         var token = await LoginAsync(email);
 
