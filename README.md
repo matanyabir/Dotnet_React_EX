@@ -163,6 +163,18 @@ A failure never costs more than the summary: `ResilientSummaryGenerator` applies
 timeout and turns any provider error into "no summary", so the ticket is still created.
 Verified with a deliberately invalid key — the ticket returned 201 in under a second.
 
+Verified against the live Anthropic API on 2026-08-16 (`claude-opus-5`). The same
+description, summarised by each provider:
+
+| Provider | Output |
+|---|---|
+| `Stub` | `i put my cup of coffee near my mac, and my cat push the cup on my mac, and now the screen is not working` |
+| `Claude` | `MacBook screen not working after coffee spilled on it.` |
+
+The stub returns the first sentence, so on a single-sentence description it echoes the
+input verbatim — the feature looks inert when it is working normally. Worth knowing
+before concluding that summarisation is broken.
+
 ### Email — `Email:Provider`
 
 | Value | Behaviour |
@@ -175,7 +187,12 @@ dotnet user-secrets set "Email:Smtp:Username" "you@gmail.com" --project backend/
 dotnet user-secrets set "Email:Smtp:Password" "<16-char app password>" --project backend/MX.Api
 ```
 
-> The SMTP path is implemented but has not been exercised against a live mail server.
+Verified against a live mail server on 2026-08-16 (Mailtrap sandbox, `LOGIN` auth and
+STARTTLS on port 2525). All three notification events delivered with correct MIME
+headers and a UTF-8 body: confirmation on creation, status change, and resolution added.
+
+Note that `Mock` writes to the API's console and nowhere else — no message reaches an
+inbox until `Email:Provider` is `Smtp`.
 
 ### Auth
 
@@ -274,7 +291,12 @@ curl -X PUT "http://localhost:5099/api/tickets/$ID" \
 - **The supplied dataset references images that were never shipped**
   (`uploads/laptop_issue.jpg` and friends), so those attachments 404. The UI says so
   rather than showing a broken-image icon.
-- **The SMTP and Claude paths are implemented but unverified against live services** —
-  both need credentials. Their failure paths are tested.
+- **Notifications are sent inline and never retried.** A handler failure is caught and
+  logged, so a dead mail server costs the notification and not the ticket — but the
+  customer is never told, and nothing tries again. Observed for real: when one `PUT`
+  changes status *and* resolution, both emails go out back-to-back and a provider
+  throttle can reject the second (Mailtrap's free tier answers `5.7.0 Too many emails
+  per second`). The ticket saved correctly and the loss appeared only in the log.
+  Handing sends to a queue with retry is the fix, and `IEmailSender` is where it lands.
 - **The responsive layout below 760px** is exercised in the screenshot above; the wide
   table was verified separately during development.
