@@ -1,0 +1,31 @@
+{
+  /*
+    The end-to-end suite and its config. Separate from tsconfig.app.json because
+    these run in Node against a browser Playwright drives, not in the browser
+    alongside the app — different globals, different libs.
+
+    Referenced from tsconfig.json so `npm run build` typechecks the specs too. A
+    spec that does not compile is a spec that was not going to catch anything,
+    and finding that out at build time beats finding out mid-run.
+  */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}
